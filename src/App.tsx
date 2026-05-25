@@ -646,7 +646,7 @@ export default function App() {
             console.error("Error capturing native frame:", err);
           }
           if (isCapturingRef.current) {
-            nativeCaptureIntervalRef.current = setTimeout(captureFrame, 33); // ~30 FPS
+            nativeCaptureIntervalRef.current = setTimeout(captureFrame, 10); // Optimal FPS
           }
         };
 
