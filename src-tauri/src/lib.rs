@@ -28,8 +28,16 @@ fn handle_remote_input<R: Runtime>(
                 if let Ok(Some(monitor)) = window.primary_monitor() {
                     let size = monitor.size();
                     let scale = monitor.scale_factor();
-                    let abs_x = ((x * size.width as f64) / scale) as i32;
-                    let abs_y = ((y * size.height as f64) / scale) as i32;
+                    #[cfg(target_os = "macos")]
+                    let (abs_x, abs_y) = (
+                        ((x * size.width as f64) / scale) as i32,
+                        ((y * size.height as f64) / scale) as i32,
+                    );
+                    #[cfg(not(target_os = "macos"))]
+                    let (abs_x, abs_y) = (
+                        (x * size.width as f64) as i32,
+                        (y * size.height as f64) as i32,
+                    );
                     enigo.move_mouse(abs_x, abs_y, Coordinate::Abs)
                         .map_err(|e| format!("Move mouse failed: {:?}", e))?;
                 }
@@ -40,8 +48,16 @@ fn handle_remote_input<R: Runtime>(
                 if let Ok(Some(monitor)) = window.primary_monitor() {
                     let size = monitor.size();
                     let scale = monitor.scale_factor();
-                    let abs_x = ((x * size.width as f64) / scale) as i32;
-                    let abs_y = ((y * size.height as f64) / scale) as i32;
+                    #[cfg(target_os = "macos")]
+                    let (abs_x, abs_y) = (
+                        ((x * size.width as f64) / scale) as i32,
+                        ((y * size.height as f64) / scale) as i32,
+                    );
+                    #[cfg(not(target_os = "macos"))]
+                    let (abs_x, abs_y) = (
+                        (x * size.width as f64) as i32,
+                        (y * size.height as f64) as i32,
+                    );
                     enigo.move_mouse(abs_x, abs_y, Coordinate::Abs)
                         .map_err(|e| format!("Move mouse failed: {:?}", e))?;
                 }
@@ -106,16 +122,17 @@ fn capture_screen() -> Result<String, String> {
     let image_buffer = monitor.capture_image().map_err(|e| e.to_string())?;
     
     let dynamic_image = DynamicImage::ImageRgba8(image_buffer);
+    let rgb_image = dynamic_image.to_rgb8();
     let mut jpeg_buffer = Vec::new();
     
     // Create a JpegEncoder with 90% quality for high-definition screen sharing
     let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buffer, 90);
     encoder
         .write_image(
-            dynamic_image.as_bytes(),
-            dynamic_image.width(),
-            dynamic_image.height(),
-            ExtendedColorType::Rgba8,
+            rgb_image.as_raw(),
+            rgb_image.width(),
+            rgb_image.height(),
+            ExtendedColorType::Rgb8,
         )
         .map_err(|e| e.to_string())?;
         

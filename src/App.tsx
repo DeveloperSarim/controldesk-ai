@@ -580,6 +580,10 @@ export default function App() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    const existingCanvas = document.getElementById("tauri-screen-capture-canvas");
+    if (existingCanvas) {
+      existingCanvas.remove();
+    }
   };
 
   const startScreenSharing = async () => {
@@ -590,6 +594,17 @@ export default function App() {
       if (isTauriApp) {
         console.log("🖥️ Tauri mode: Initializing native Rust screen capture pipeline...");
         const canvas = document.createElement("canvas");
+        canvas.id = "tauri-screen-capture-canvas";
+        canvas.style.position = "fixed";
+        canvas.style.top = "-9999px";
+        canvas.style.left = "-9999px";
+        canvas.style.width = "1px";
+        canvas.style.height = "1px";
+        canvas.style.opacity = "0";
+        canvas.style.pointerEvents = "none";
+        canvas.style.zIndex = "-1000";
+        document.body.appendChild(canvas);
+
         const ctx = canvas.getContext("2d");
         
         // Initial dummy dimensions so captureStream doesn't fail
@@ -606,14 +621,26 @@ export default function App() {
           try {
             const base64Str = await invokeTauri("capture_screen");
             if (base64Str && ctx) {
-              const img = new Image();
-              img.onload = () => {
-                if (!isCapturingRef.current) return;
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-              };
-              img.src = "data:image/jpeg;base64," + base64Str;
+              await new Promise<void>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                  if (!isCapturingRef.current) {
+                    resolve();
+                    return;
+                  }
+                  // Only adjust width/height if dimensions changed to prevent WebRTC track resets
+                  if (canvas.width !== img.width || canvas.height !== img.height) {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                  }
+                  ctx.drawImage(img, 0, 0);
+                  resolve();
+                };
+                img.onerror = () => {
+                  reject(new Error("Image load failed"));
+                };
+                img.src = "data:image/jpeg;base64," + base64Str;
+              });
             }
           } catch (err) {
             console.error("Error capturing native frame:", err);
